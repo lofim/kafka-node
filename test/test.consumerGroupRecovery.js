@@ -8,6 +8,7 @@ const GroupCoordinatorNotAvailable = require('../lib/errors/GroupCoordinatorNotA
 const GroupLoadInProgress = require('../lib/errors/GroupLoadInProgressError');
 const HeartbeatTimeout = require('../lib/errors/HeartbeatTimeoutError');
 const TimeoutError = require('../lib/errors/TimeoutError');
+const TopicsNotExistError = require('../lib/errors/TopicsNotExistError');
 const BrokerNotAvailableError = require('../lib/errors').BrokerNotAvailableError;
 const EventEmitter = require('events');
 
@@ -119,6 +120,23 @@ describe('ConsumerGroupRecovery', function () {
       sinon.assert.calledOnce(fakeConsumerGroup.stopHeartbeats);
       fakeConsumerGroup.ready.should.be.false;
       consumerGroupRecovery.lastError.should.be.eql(heartbeatTimeout);
+
+      sinon.assert.calledOnce(fakeConsumerGroup.scheduleReconnect);
+    });
+
+    it.only('should try to recover from a no metadata for topic error', function () {
+      const fakeTopicsNotExistError = new TopicsNotExistError(['NonExistentTopic']);
+
+      fakeConsumerGroup.once('error', function (error) {
+        error.should.not.be.eql(fakeTopicsNotExistError);
+      });
+
+      sinon.stub(fakeConsumerGroup, 'scheduleReconnect');
+
+      consumerGroupRecovery.tryToRecoverFrom(fakeTopicsNotExistError, 'test');
+
+      fakeConsumerGroup.ready.should.be.false;
+      consumerGroupRecovery.lastError.should.be.eql(fakeTopicsNotExistError);
 
       sinon.assert.calledOnce(fakeConsumerGroup.scheduleReconnect);
     });
