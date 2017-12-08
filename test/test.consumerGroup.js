@@ -1066,4 +1066,37 @@ describe('ConsumerGroup', function () {
 
     async.series([addMessages, confirmMessages, confirmMessages], done);
   });
+
+  describe('Missing topic metadata recovery', function () {
+    let consumerGroup = null;
+    let ConsumerGroup = null;
+
+    const TOPIC_NAME = 'NonExistentTopic';
+    const TopicsNotExistError = require('../lib/errors/TopicsNotExistError');
+    const expectedError = new TopicsNotExistError([TOPIC_NAME]);
+    const fakeGroupMembers = [{ subscription: [ TOPIC_NAME ] }];
+
+    const fakeClient = sinon.stub().returns({
+      loadMetadataForTopics: (topic, callback) => {
+        callback(null, [{}, { metadata: {} }]);
+      },
+      once: () => {},
+      on: () => {}
+    });
+
+    before(function () {
+      ConsumerGroup = proxyquire('../lib/consumerGroup', {
+        './client': fakeClient
+      });
+
+      consumerGroup = new ConsumerGroup({}, TOPIC_NAME);
+    });
+
+    it('should throw TopicsNotExistError when topic metadata is missing', function (done) {
+      consumerGroup.assignPartitions(null, fakeGroupMembers, err => {
+        should.deepEqual(err, expectedError);
+        done();
+      });
+    });
+  });
 });
